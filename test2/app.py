@@ -3,18 +3,24 @@ import random
 from collections import defaultdict
 
 # OpenTelemetry
-from opentelemetry import trace, metrics
+from opentelemetry import trace
+from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
 from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
 from opentelemetry.instrumentation.flask import FlaskInstrumentor
+
+# Prometheus
 from prometheus_client import Counter, generate_latest
 
-# Initialisation OpenTelemetry
-trace.set_tracer_provider(TracerProvider())
-tracer = trace.get_tracer(__name__)
-exporter = OTLPSpanExporter(endpoint="http://localhost:4317", insecure=True)
-trace.get_tracer_provider().add_span_processor(BatchSpanProcessor(exporter))
+# Initialisation OpenTelemetry avec un service.name unique
+trace_provider = TracerProvider(resource=Resource.create({
+    "service.name": "test2-app"
+}))
+trace.set_tracer_provider(trace_provider)
+exporter = OTLPSpanExporter(endpoint="http://otel-collector:4317", insecure=True)
+trace_provider.add_span_processor(BatchSpanProcessor(exporter))
+tracer = trace.get_tracer("test2-app")
 
 # Flask App
 app = Flask(__name__)
@@ -51,4 +57,4 @@ def top_searches():
     return jsonify({"top_searched_products": top_products})
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(host="0.0.0.0", port=5001, debug=True)
